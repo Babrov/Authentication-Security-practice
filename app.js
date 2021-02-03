@@ -37,7 +37,8 @@ mongoose.set('useCreateIndex', true);
 const userSchema = new mongoose.Schema({
   email: String,
   password: String,
-  googleId: String
+  googleId: String,
+  secret: String
 });
 
 userSchema.plugin(passportLocalMongoose);
@@ -93,12 +94,41 @@ app.get('/register', (req, res) => {
 });
 
 app.get('/secrets', (req, res) => {
-  req.isAuthenticated() ? res.render('secrets') : res.redirect('/login');
+  User.find({'secret':{$ne: null}},(err,foundUsers) => {
+    if (err) {
+      console.log(err);
+    } else {
+      if (foundUsers) {
+        res.render('secrets',{usersWithSecrets: foundUsers});
+      }
+    }
+  })
 });
 
 app.get('/logout', (req, res) => {
   req.logout();
   res.redirect('/');
+});
+
+app.get('/submit', (req, res) => {
+  req.isAuthenticated() ? res.render('submit') : res.redirect('/login');
+});
+
+app.post('/submit', (req, res) => {
+  const submittedSecret = req.body.secret;  
+
+  User.findById(req.user.id, (err,foundUser) => {
+    if (err) {
+      console.log(err);
+    } else {
+      if (foundUser) {
+        foundUser.secret = submittedSecret;
+        foundUser.save(() => {
+          res.redirect('/secrets')
+        })
+      }
+    }
+  })
 });
 
 app.post('/register', (req, res) => {
@@ -121,6 +151,7 @@ app.post('/login', (req, res) => {
     password: req.body.password,
   });
 
+
   req.login(user, (err) => {
     err
       ? res.redirect('/login')
@@ -129,6 +160,8 @@ app.post('/login', (req, res) => {
         });
   });
 });
+
+
 
 app.listen(3000, () => {
   console.log('Server started on port 3000.');
